@@ -38,7 +38,7 @@ SSTImap ran through its plugin checks (Twig, Jinja2, ERB, Java EL, etc.) and con
 ```
 ![alt text](images/image-2.png)
 
-So the backend is evaluating **Java Expression Language (EL)** — likely a Java-based template engine.
+SSTImap identified a possible Java EL-style injection, but this result was treated as a hypothesis and required manual verification.
 
 ## Step 3 — Manual Confirmation
 Went back to Burp Repeater to confirm manually. Sent:
@@ -52,8 +52,7 @@ The response rendered `49` in the output table — confirming the EL expression 
 ![alt text](images/image-3.png)
 
 ## Step 4 — Escalating to Command Execution
-Since Java EL was confirmed, tried reaching for OS command execution via the exposed `self` object (common in Groovy/Java EL contexts).
-
+After confirming server-side expression evaluation, I tested whether the exposed template context could be used to access the underlying Python runtime and execute OS commands.
 Payload:
 ```
 GET /?text=${self.module.cache.util.os.popen('whoami').read()} HTTP/1.1
@@ -112,6 +111,6 @@ Submitted the flag on the platform — challenge marked as **completed**.
 | 6 | Read flag via `cat /flag.txt` |
 | 7 | `HTB{t3mpl4t3_1nj3ct10n_C4n_3x1st5_4nywh343!!!}` |
 
-**Root cause:** User input (`text` parameter) was passed directly into a Java EL template evaluation context without sanitization, allowing arbitrary expression evaluation and ultimately OS command execution via exposed runtime objects.
+**Root cause:** User input from the text parameter was evaluated within a server-side template/expression context instead of being treated strictly as data. This allowed attacker-controlled expressions to be executed and, through exposed runtime functionality, escalated to OS command execution.
 
 **Fix/Mitigation:** Never evaluate user-controlled input as template/EL expressions. Use sandboxed template engines, strict input allow-listing, or avoid dynamic expression evaluation for user-facing transformations.
